@@ -1,0 +1,59 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>tscircuit verification harness</title>
+    <style>
+      html, body { margin: 0; padding: 0; background: #ffffff; font-family: system-ui, sans-serif; }
+      #root { width: 100vw; min-height: 100vh; padding: 24px; box-sizing: border-box; }
+      #status { position: fixed; top: 8px; right: 8px; padding: 4px 10px; border-radius: 4px; font: 12px/1 monospace; background: #eee; color: #333; }
+      #status.ok    { background: #2e7d32; color: #fff; }
+      #status.error { background: #c62828; color: #fff; }
+      pre.error-detail { color: #b00020; padding: 16px; white-space: pre-wrap; font-size: 13px; }
+    </style>
+    <script src="tscircuit-bundle.js"></script>
+  </head>
+  <body>
+    <div id="status">idle</div>
+    <div id="root">Awaiting render…</div>
+    <script>
+      // Set by the test driver via Playwright's browser_evaluate, or via a
+      // <script id="tsx-source" type="text/plain"> tag if you embed it manually.
+      window.__renderTscircuit = async function (tsxCode, opts) {
+        const status = document.getElementById("status");
+        const root = document.getElementById("root");
+        status.className = "";
+        status.textContent = "rendering…";
+        try {
+          if (!window.Tscircuit || !window.Tscircuit.renderSchematic) {
+            throw new Error("Tscircuit bundle did not load (window.Tscircuit is undefined)");
+          }
+          await window.Tscircuit.renderSchematic(root, tsxCode, opts || {});
+          const svg = root.querySelector("svg");
+          if (!svg) throw new Error("renderSchematic produced no <svg> — Circuit JSON likely empty");
+          const bbox = svg.getBoundingClientRect();
+          status.className = "ok";
+          status.textContent = `ok ${Math.round(bbox.width)}x${Math.round(bbox.height)}`;
+          return {
+            ok: true,
+            width: bbox.width,
+            height: bbox.height,
+            svgInnerLength: svg.outerHTML.length,
+          };
+        } catch (err) {
+          status.className = "error";
+          status.textContent = "error";
+          root.innerHTML = '<pre class="error-detail"></pre>';
+          root.firstChild.textContent = (err && err.stack) || String(err);
+          return { ok: false, error: String(err && err.message || err) };
+        }
+      };
+
+      // Auto-render if a <script id="tsx-source" type="text/plain"> tag is present.
+      window.addEventListener("DOMContentLoaded", () => {
+        const src = document.getElementById("tsx-source");
+        if (src) window.__renderTscircuit(src.textContent);
+      });
+    </script>
+  </body>
+</html>
