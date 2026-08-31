@@ -1,0 +1,88 @@
+<!--
+PLACEHOLDERS — replace all of these, then delete this comment:
+  {{SITE_DOMAIN}}    example.com
+  {{REPO}}           owner/web-example
+  {{OWNER_NAME}}     who to contact
+  {{OWNER_EMAIL}}    their email
+  {{LANG_NOTE}}      the languages rule, or delete that section for a single-language site
+  {{SITE_RULES}}     2–4 site-specific rules from AGENTS.md, in plain words
+
+Keep the tone: no jargon without a definition, and name the buttons.
+-->
+
+# How to update {{SITE_DOMAIN}} (no coding needed)
+
+You describe the change in plain language, an AI assistant makes it, you check it on a
+preview link, and you click one button to publish. You never need a terminal, and
+nothing you do can affect the live site before you have seen it working.
+
+## One-time setup
+
+1. **A GitHub account** with access to `{{REPO}}`. Ask {{OWNER_NAME}} to add you.
+2. **An AI assistant connected to that repository.** Either:
+   - **Claude Code on the web** — <https://claude.ai/code> (these instructions assume it)
+   - **Google Jules** — <https://jules.google.com>, if you prefer Gemini
+
+   The steps below are the same with either one.
+
+## Making a change
+
+**1. Open <https://claude.ai/code> and select the `{{REPO}}` repository.**
+
+**2. Describe what you want, in normal language.** You don't need to know where anything
+lives — it will find it. For example:
+
+- "On the About page, change the second paragraph to say ..."
+- "Add this photograph to the Products page" (attach the image)
+- "Update the contact email across the whole site to ..."
+- "Fix the typo 'recieve' wherever it appears"
+
+**3. Ask it to open a pull request.** A pull request is simply a proposed change waiting
+for your approval — the live site is not affected yet.
+
+**4. Open the pull request on GitHub and wait a couple of minutes.** A comment will
+appear with a **preview link** — a private copy of the entire site with your change
+applied. Click it, and check the result on both a computer and a phone.
+
+**5. Happy with it?** Press the green **Merge pull request** button, then **Confirm
+merge**. The live site updates itself within about two minutes.
+
+**6. Not happy?** Tell the assistant what to adjust — the same preview link updates
+itself. Or just close the pull request, and nothing happens at all.
+
+## If something looks wrong after publishing
+
+Every published change can be undone with one click. Open the merged pull request on
+GitHub, press **Revert**, and merge the revert the same way. The site goes back to
+exactly how it was.
+
+## Things that are normal, not faults
+
+- **The contact form doesn't work on a preview link.** Deliberate — previews are not
+  allowed to send real email. It works on the live site.
+- **A preview link won't open.** Some office networks block `pages.dev` addresses.
+  The quickest check is a phone on mobile data — if it opens there, it's your office
+  network, not the site. Ask whoever runs the network to allow `*.pages.dev`.
+  Changing your DNS to 8.8.8.8 is often suggested for this and usually does **not**
+  help: the block is normally on the address name itself, not on looking it up.
+- **The preview takes a couple of minutes to appear.** The site is rebuilt from scratch
+  each time. If nothing has appeared after five minutes, something failed — ask the
+  assistant to check.
+
+## Rules worth knowing
+
+The assistant reads this project's `AGENTS.md` file and follows the house rules by
+itself, but these matter enough to know yourself:
+
+{{LANG_NOTE}}
+
+**Don't let it invent facts.** If you ask for something like "add a line about our
+experience", check what it writes. Numbers, certifications, standards, client names and
+awards must be real. Search engines and regulators both notice, and a wrong
+specification is a commercial problem rather than a typo.
+
+{{SITE_RULES}}
+
+## Who to ask
+
+{{OWNER_NAME}} — {{OWNER_EMAIL}}

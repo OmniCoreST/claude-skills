@@ -1,0 +1,158 @@
+/**
+ * PLACEHOLDERS — replace before committing:
+ *   {{SITE_DOMAIN}}   example.com          (used in the subject line)
+ *   {{SITE_NAME}}     Example Ltd          (shown as the sender name)
+ *   {{CONTACT_TO}}    info@example.com     (who receives)
+ *   {{CONTACT_FROM}}  info@example.com     (who it appears to come from —
+ *                                           MUST be registered under Brevo → Senders)
+ *
+ * POST /api/contact — contact form handler.
+ *
+ * A Cloudflare Pages Function, not part of the Astro build. Pages serves
+ * everything in dist/ as static assets and routes /api/* here, so the site
+ * stays a static build with no adapter and no server rendering.
+ *
+ * Bindings (Cloudflare dashboard, or `wrangler pages secret put`):
+ *   BREVO_API_KEY   secret, required
+ *   CONTACT_TO      optional, defaults below
+ *   CONTACT_FROM    optional, defaults below
+ *
+ * The key is bound to production only, so preview deployments deliberately
+ * cannot send mail. That is expected, not a broken build.
+ */
+
+const DEFAULT_TO = '{{CONTACT_TO}}';
+// Must be a sender Brevo has registered. An address on an authenticated domain
+// is not enough on its own — Brevo accepts the API call and then blocks the
+// send, which looks like success at this end and silence at the other.
+const DEFAULT_FROM = '{{CONTACT_FROM}}';
+
+// Keep these identical to the maxlength attributes on the form, or the browser
+// accepts input the server then rejects, with nothing to show the visitor.
+const LIMITS = { name: 120, email: 255, subject: 200, message: 5000 };
+
+/** Deliberately loose: the only real check that an address works is sending to it. */
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+const json = (status, body) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' },
+  });
+
+/**
+ * The form works without JavaScript, so a plain submit must land somewhere
+ * readable rather than on a page of raw JSON.
+ */
+const wantsJson = (request) =>
+  (request.headers.get('accept') || '').includes('application/json') ||
+  (request.headers.get('content-type') || '').includes('application/json');
+
+const redirect = (request, ok) => {
+  const url = new URL(request.url);
+  const referer = request.headers.get('referer');
+  // Origin-checked, so the redirect target can't be steered from outside.
+  // Following the referer also returns a /tr or /fr visitor to their own page.
+  const back = referer && referer.startsWith(url.origin) ? new URL(referer) : new URL('/', url);
+  back.hash = '';
+  back.searchParams.set('sent', ok ? '1' : '0');
+  back.hash = 'contact';
+  return Response.redirect(back.toString(), 303);
+};
+
+async function readFields(request) {
+  const type = request.headers.get('content-type') || '';
+  if (type.includes('application/json')) return await request.json();
+  const form = await request.formData();
+  return Object.fromEntries(form.entries());
+}
+
+export async function onRequestPost({ request, env }) {
+  let fields;
+  try {
+    fields = await readFields(request);
+  } catch {
+    return wantsJson(request) ? json(400, { ok: false, error: 'bad_request' }) : redirect(request, false);
+  }
+
+  const get = (k) => String(fields[k] ?? '').trim();
+  const name = get('name');
+  const email = get('email');
+  const subject = get('subject');
+  const message = get('message');
+
+  // Honeypot. Report success so the bot has nothing to learn from the response.
+  if (get('website')) {
+    return wantsJson(request) ? json(200, { ok: true }) : redirect(request, true);
+  }
+
+  const invalid =
+    !name ||
+    !email ||
+    !message ||
+    !EMAIL_RE.test(email) ||
+    name.length > LIMITS.name ||
+    email.length > LIMITS.email ||
+    subject.length > LIMITS.subject ||
+    message.length > LIMITS.message;
+
+  if (invalid) {
+    return wantsJson(request) ? json(422, { ok: false, error: 'invalid' }) : redirect(request, false);
+  }
+
+  if (!env.BREVO_API_KEY) {
+    console.error('BREVO_API_KEY is not bound — cannot send');
+    return wantsJson(request) ? json(500, { ok: false, error: 'unconfigured' }) : redirect(request, false);
+  }
+
+  const ip = request.headers.get('cf-connecting-ip') || 'unknown';
+  const country = request.cf?.country || 'unknown';
+
+  const payload = {
+    sender: { name: '{{SITE_NAME}}', email: env.CONTACT_FROM || DEFAULT_FROM },
+    to: [{ email: env.CONTACT_TO || DEFAULT_TO }],
+    // So a reply in the mail client goes to the person who wrote in.
+    replyTo: { email, name },
+    subject: subject ? `[{{SITE_DOMAIN}}] ${subject}` : `[{{SITE_DOMAIN}}] Message from ${name}`,
+    // Plain text only, so nothing a visitor typed is ever rendered as markup.
+    textContent: [
+      `Name:    ${name}`,
+      `Email:   ${email}`,
+      `Subject: ${subject || '(none)'}`,
+      `IP:      ${ip} (${country})`,
+      '',
+      message,
+    ].join('\n'),
+  };
+
+  let res;
+  try {
+    res = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        // Brevo uses a bare api-key header, not Authorization: Bearer.
+        'api-key': env.BREVO_API_KEY,
+        'content-type': 'application/json',
+        accept: 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+  } catch (err) {
+    console.error('brevo request failed', err);
+    return wantsJson(request) ? json(502, { ok: false, error: 'send_failed' }) : redirect(request, false);
+  }
+
+  if (!res.ok) {
+    // Body is logged, never returned: it can carry account details.
+    console.error('brevo rejected', res.status, await res.text());
+    return wantsJson(request) ? json(502, { ok: false, error: 'send_failed' }) : redirect(request, false);
+  }
+
+  return wantsJson(request) ? json(200, { ok: true }) : redirect(request, true);
+}
+
+/** Anything other than POST, answered explicitly rather than as a 405 from the asset server. */
+export const onRequest = async (ctx) =>
+  ctx.request.method === 'POST'
+    ? onRequestPost(ctx)
+    : new Response('Method Not Allowed', { status: 405, headers: { allow: 'POST' } });

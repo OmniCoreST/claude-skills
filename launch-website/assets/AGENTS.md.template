@@ -1,0 +1,98 @@
+<!--
+PLACEHOLDERS — replace, then delete this comment:
+  {{SITE_DOMAIN}} {{SITE_NAME}} {{PROJECT_NAME}} {{STACK_NOTE}}
+  {{CONTENT_MAP}}     where each kind of content lives — a table
+  {{EDITORIAL_RULES}} the real rules for THIS site, numbered
+  {{ODDITIES}}        looks-wrong / why-it's-right table, or delete the section
+
+This file is the highest-leverage thing in the repo: it is what a future AI reads
+before every change. Write real rules, not placeholders. A rule with its reason
+attached survives; a bare prohibition gets rationalised away.
+-->
+
+# {{SITE_NAME}} — project rules
+
+The website for {{SITE_NAME}}, live at <https://{{SITE_DOMAIN}}>. {{STACK_NOTE}}
+The site lives in `web/`. Deployed to Cloudflare Pages (project `{{PROJECT_NAME}}`).
+
+This repo is the only source of truth for the site's content.
+
+## Workflow — never push to main
+
+Always create a branch and open a pull request. CI builds every pull request and posts a
+preview URL as a comment; merging to `main` deploys production.
+
+Do not run `wrangler pages deploy` by hand — CI owns deployment. Deploying manually puts
+the live site out of step with this repo, which is the exact confusion the preview
+workflow exists to prevent.
+
+Before opening a pull request, run `npm run build` inside `web/` and confirm it succeeds
+with no errors. A build that fails in CI wastes the reviewer's time and blocks the
+preview link they are waiting for.
+
+## Editorial rules (non-negotiable)
+
+{{EDITORIAL_RULES}}
+
+<!-- Rules that apply to essentially every site — keep these and add site-specific ones.
+
+1. **Never invent facts.** No customer counts, client names, years in business,
+   certifications, standards compliance, technical specifications, awards, partnerships
+   or uptime figures unless they are already in this repo or the owner supplied them.
+   In a technical or regulated industry a wrong specification is a commercial and
+   regulatory problem, not a typo. If a number would read naturally but you don't have
+   it, write the sentence without it and say so in the pull request.
+
+2. **The visual result is the agreed design, not your preference.** Don't restyle,
+   reformat or "modernise" anything that wasn't part of the request. Reuse existing
+   classes rather than adding new CSS. A pull request full of incidental changes hides
+   the one real change inside it.
+
+3. **Meta length budgets.** `<title>` at most 62 characters, `<meta name="description">`
+   at most 160. Longer gets truncated in search results, usually mid-word.
+
+4. **URLs are permanent.** Never change an existing page's address, even one that reads
+   wrongly — it has been indexed and linked to. If a URL genuinely must change, add a
+   301 redirect in `web/public/_redirects` in the same change.
+-->
+
+## Where content lives (edit data, not markup, when possible)
+
+{{CONTENT_MAP}}
+
+Text belongs in the data files, not in the markup. It is what makes a future request
+like "change that sentence" a reliable lookup rather than a search that can miss a copy.
+
+## Contact form
+
+Sends through Brevo from a Cloudflare Pages Function at `web/functions/api/contact.js`.
+
+Bindings on the Pages project: `BREVO_API_KEY` (secret, required), `CONTACT_TO`,
+`CONTACT_FROM` (optional).
+
+The key is bound to the **production environment only**, so preview deployments cannot
+send mail. That is deliberate. Don't read it as a broken build.
+
+Pages binds environment variables at deploy time — after adding or rotating a secret,
+redeploy or the running site will not see it.
+
+The form must keep working without JavaScript. The no-JS path is a plain form post
+answered with a redirect carrying `?sent=1|0`; the enhanced path is a `fetch` that gets
+JSON back. Both are load-bearing — the plain path is the fallback when anything else
+fails.
+
+## Load-bearing oddities — do not "fix" these
+
+{{ODDITIES}}
+
+## Commands
+
+```bash
+cd web
+npm install
+npm run dev      # local preview — note this does NOT run the contact form
+npm run build    # must pass before opening a pull request
+
+# to exercise the contact form locally:
+npm run build && npx wrangler pages dev dist
+```
