@@ -59,13 +59,19 @@ The first time in a project, wire the hooks so their feedback reaches you
 without them having to ask:
 
 ```bash
-python3 $SK/uifb.py install-hooks     # SessionStart, UserPromptSubmit, Stop
+python3 $SK/uifb.py install-hooks           # this project only
+python3 $SK/uifb.py install-hooks --user    # once, for every project
 ```
 
-Say plainly that this edits `.claude/settings.json` and needs a restart of
-Claude Code to take effect. If they would rather not have hooks, everything
-still works - you just pick items up with `uifb.py pending` when they mention
-they have sent some.
+Say plainly that this edits `.claude/settings.json` (`--user` edits
+`~/.claude/settings.json`) and needs a restart of Claude Code to take effect. If
+they would rather not have hooks, everything still works - you just pick items
+up with `uifb.py pending` when they mention they have sent some.
+
+Feedback reaches a session two ways: the session sits inside the reviewed
+project, or a review server for that project is running while the session works
+elsewhere. `UIFB_ROOT=/path/to/project` pins a session to one ledger outright.
+See `references/hooks.md`.
 
 If the app is not up yet, start it the way that project starts it, or ask. Do
 not guess a port: `uifb.py doctor` reports whether the target answers.

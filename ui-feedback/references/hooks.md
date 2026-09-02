@@ -39,6 +39,48 @@ Manual equivalent, if editing settings yourself is preferred:
 }
 ```
 
+## Scope: which settings file
+
+`install-hooks` writes the project's `.claude/settings.json`; `--local` targets
+`settings.local.json`; `--user` writes `~/.claude/settings.json` once and covers
+every project. All three are detected, so `doctor`, the serve banner and the
+rail agree about whether delivery is armed.
+
+It refuses to run when the project root resolves to your home directory. That
+happens when the command is run from `~` with no `.git` above it: the entries
+would land in your *global* settings while the output claimed a project
+install, and an unused `~/.uifeedback` would be left behind. Use `--user` when
+covering everything is what you actually want.
+
+## Which ledger the hook reads
+
+Delivery only happens if the hook looks in the right place, and "the right
+place" is not always the session's own directory. Resolution order:
+
+1. **`UIFB_ROOT`** - an explicit path pins the session to that ledger and
+   nothing else is consulted. This is how a session is aimed at a project it
+   does not live in.
+2. **The session's own project** - walking up from the payload's `cwd` for a
+   `.uifeedback` ledger, as before.
+3. **Any review server running right now** - a serving process records its root
+   in `${XDG_STATE_HOME:-~/.local/state}/uifb/servers.json`, so a session
+   working outside the reviewed checkout still receives what the reviewer sent.
+   Those batches say which checkout they belong to, so the fix does not land in
+   the wrong repo. Set `UIFB_CROSS_PROJECT=0` to switch this off.
+
+Step 3 exists because step 2 alone fails silently in a very ordinary setup: the
+reviewer marks up their app while the agent session runs somewhere else - a
+home directory, a tooling repo, a sibling checkout. The hook walked up, found
+no ledger, exited 0, and the reviewer watched a sent item sit there forever
+with nothing to explain it. The workaround people reached for was a wrapper
+script that rewrote the payload's `cwd` to a hardcoded path; `UIFB_ROOT` now
+does that properly.
+
+The registry is a cache of live processes, never a source of truth about
+feedback. Every entry is re-checked before it is trusted - process alive, port
+answering, ledger still on disk - and pruned when it is not, so a server that
+was killed rather than stopped cannot keep delivering.
+
 ## What each event is for
 
 Each answers a different "when would this otherwise be missed?".

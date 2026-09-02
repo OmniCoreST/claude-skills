@@ -27,7 +27,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from render import brief, summarize  # noqa: E402
-from store import DIR_NAME, STATUSES, Store, find_project_root  # noqa: E402
+from store import (  # noqa: E402
+    DIR_NAME, STATUSES, Store, find_project_root, register_server, unregister_server,
+)
 
 HERE = Path(__file__).resolve().parent
 HOOK = HERE / "hook_uifb.py"
@@ -117,7 +119,10 @@ def cmd_serve(args) -> int:
     print(f"review surface  {review_url}")
     print(f"app under review {target}" + ("" if ok else f"   [not answering: {detail}]"))
     print(f"ledger          {root / DIR_NAME / 'feedback.json'}  ({summarize(store.counts())})")
-    if not server._hooks_installed(root):
+    scopes = server.hook_scopes(root)
+    if scopes:
+        print(f"hooks           wired ({', '.join(scope for scope, _ in scopes)})")
+    else:
         print("hooks           not installed - run `uifb.py install-hooks` so sent feedback "
               "reaches Claude on its own")
     print("Ctrl-C to stop.")
@@ -125,11 +130,15 @@ def cmd_serve(args) -> int:
     if args.open:
         webbrowser.open(review_url)
 
+    # Announce this server while it is up, so the delivery hook can find this
+    # ledger from a session that is not sitting in this project.
+    register_server(root, port, target)
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
         print("\nstopped.")
     finally:
+        unregister_server(root)
         httpd.server_close()
     return 0
 
@@ -243,7 +252,36 @@ HOOK_EVENTS = {
 
 def cmd_install_hooks(args) -> int:
     root = resolve_root(args.root)
-    settings_path = root / ".claude" / ("settings.local.json" if args.local else "settings.json")
+    name = "settings.local.json" if args.local else "settings.json"
+
+    # `--user` writes ~/.claude/settings.json on purpose: one wiring that covers
+    # every project. Reaching the same file by accident is the problem. Running
+    # this from a home directory with no .git resolves the "project root" to
+    # home itself, so the entries land in the user's global settings while the
+    # output claims a project install - and it drops an empty .uifeedback in
+    # home that no review server ever uses.
+    if args.user:
+        settings_path = Path.home() / ".claude" / name
+    else:
+        if root == Path.home():
+            print("error: this resolved the project root to your home directory, so the "
+                  "hook would be written to your GLOBAL settings while reporting a "
+                  "project install.\n"
+                  "  - to wire one project:  cd into it first, or pass --root <path>\n"
+                  "  - to cover every project on purpose:  uifb.py install-hooks --user",
+                  file=sys.stderr)
+            return 2
+        settings_path = root / ".claude" / name
+
+    import server
+    covering = [(scope, path) for scope, path in server.hook_scopes(root)
+                if path.resolve() != settings_path.resolve()]
+    if covering and not args.force:
+        where = ", ".join(f"{scope}: {path}" for scope, path in covering)
+        print(f"already covered by {where} - the hook fires for this project already.")
+        print("Pass --force to add a second, redundant entry here anyway.")
+        return 0
+
     settings_path.parent.mkdir(parents=True, exist_ok=True)
 
     settings = {}
@@ -272,7 +310,11 @@ def cmd_install_hooks(args) -> int:
         added.append(event)
 
     settings_path.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
-    Store(root / DIR_NAME)  # make sure the ledger exists, or the hook stays silent
+    # A user-scope install covers projects that do not exist yet, so there is no
+    # ledger to create - and creating one here is what litters a home directory
+    # with an .uifeedback nothing serves.
+    if not args.user:
+        Store(root / DIR_NAME)  # make sure the ledger exists, or the hook stays silent
 
     if added:
         print(f"wired {', '.join(added)} in {settings_path}")
@@ -298,8 +340,10 @@ def cmd_doctor(args) -> int:
     line(store.path.exists(), f"ledger {store.path}", summarize(store.counts()))
 
     import server
-    line(server._hooks_installed(root), "hooks installed",
-         "" if server._hooks_installed(root) else "run: uifb.py install-hooks")
+    scopes = server.hook_scopes(root)
+    line(bool(scopes), "hooks installed",
+         ", ".join(f"{scope}: {path}" for scope, path in scopes)
+         if scopes else "run: uifb.py install-hooks")
 
     if target:
         ok, detail = reachable(target)
@@ -359,6 +403,10 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser("install-hooks", help="let sent feedback reach Claude automatically")
     s.add_argument("--local", action="store_true",
                    help="write .claude/settings.local.json instead of settings.json")
+    s.add_argument("--user", action="store_true",
+                   help="wire ~/.claude/settings.json once, covering every project")
+    s.add_argument("--force", action="store_true",
+                   help="add an entry even when another scope already covers this project")
     s.set_defaults(func=cmd_install_hooks)
 
     s = sub.add_parser("doctor", help="check the setup")
