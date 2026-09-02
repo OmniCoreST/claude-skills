@@ -117,7 +117,7 @@ iframe#app {
 }
 body.rail-hidden .rail { display: none; }
 
-.rail-head { padding: 10px; border-bottom: 1px solid var(--line-soft);
+.rail-head { flex: none; padding: 10px; border-bottom: 1px solid var(--line-soft);
   display: flex; flex-direction: column; gap: 8px; }
 .filters { display: flex; gap: 4px; flex-wrap: wrap; }
 .chip {
@@ -134,7 +134,16 @@ body.rail-hidden .rail { display: none; }
 }
 #search:focus { border-color: var(--accent); }
 
-.list { flex: 1; overflow: auto; padding: 8px; display: flex; flex-direction: column; gap: 8px; }
+/* Two flex defaults have to be overridden here or the list stops being a list.
+   `min-height: 0` because a column flex item defaults to `min-height: auto`,
+   which refuses to shrink below its content - so the list grew to fit every
+   card and `overflow: auto` never had anything to scroll. And `flex: none` on
+   the children because a flex item shrinks by default: with the list finally
+   bounded, the cards absorbed the squeeze instead, collapsing into overlapping
+   slivers that could not be read, clicked or scrolled. */
+.list { flex: 1 1 0; min-height: 0; overflow: auto; padding: 8px;
+  display: flex; flex-direction: column; gap: 8px; }
+.list > * { flex: none; }
 .empty { color: var(--faint); text-align: center; padding: 32px 16px; font-size: 12px; line-height: 1.7; }
 
 .card {
@@ -175,7 +184,7 @@ body.rail-hidden .rail { display: none; }
 .note b { color: #a8b3ff; font-weight: 600; }
 .card-actions { display: flex; gap: 5px; flex-wrap: wrap; }
 
-.rail-foot { padding: 10px; border-top: 1px solid var(--line-soft);
+.rail-foot { flex: none; padding: 10px; border-top: 1px solid var(--line-soft);
   display: flex; flex-direction: column; gap: 8px; background: var(--surface); }
 .foot-note { font-size: 11px; color: var(--faint); line-height: 1.5; }
 .foot-note b { color: var(--muted); }
