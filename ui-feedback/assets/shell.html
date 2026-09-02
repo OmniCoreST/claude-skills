@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en" data-uifb-shell="1">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UI review</title>
+<link rel="stylesheet" href="/__uifb/static/shell.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' rx='4' fill='%237c5cff'/></svg>">
+</head>
+<body>
+
+<header class="bar">
+  <div class="brand"><span class="dot"></span><b id="project">review</b></div>
+
+  <div class="modes">
+    <button class="btn" id="mode-pick" title="Alt+M">Mark element</button>
+    <button class="btn" id="mode-region" title="Alt+R">Draw region</button>
+  </div>
+
+  <div class="addr">
+    <button class="btn ghost" id="back" title="Back">&#8592;</button>
+    <button class="btn ghost" id="reload" title="Reload the app frame">&#8635;</button>
+    <input id="route" spellcheck="false" value="/">
+  </div>
+
+  <div class="widths" id="widths"></div>
+
+  <div class="right">
+    <button class="btn ghost" id="shots" title="Grant one tab capture so every item gets a picture">Screenshots: off</button>
+    <button class="btn ghost" id="toggle-rail" title="Hide the rail">&#9776;</button>
+  </div>
+</header>
+
+<main>
+  <section class="stage" id="stage">
+    <div class="frame-wrap" id="frameWrap">
+      <iframe id="app" src="/" allow="display-capture; clipboard-read; clipboard-write"></iframe>
+    </div>
+  </section>
+
+  <aside class="rail" id="rail">
+    <div class="rail-head">
+      <div class="filters" id="filters"></div>
+      <input id="search" placeholder="Search feedback..." spellcheck="false">
+    </div>
+
+    <div class="list" id="list"></div>
+
+    <div class="rail-foot">
+      <div class="foot-note" id="footNote"></div>
+      <button class="btn primary wide" id="send">Send to AI</button>
+    </div>
+  </aside>
+</main>
+
+<div class="lightbox" id="lightbox" hidden><img id="lightboxImg" alt="feedback screenshot"></div>
+<div class="toast" id="toast" hidden></div>
+<video id="grabber" playsinline muted hidden></video>
+<canvas id="canvas" hidden></canvas>
+
+<script src="/__uifb/static/shell.js"></script>
+</body>
+</html>

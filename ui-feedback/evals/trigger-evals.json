@@ -1,0 +1,83 @@
+[
+  {
+    "query": "our new admin dashboard is running on localhost:5173 and i want to go through it screen by screen and mark the bits that are off. typing out 'the third card has too much padding' every single time is killing me",
+    "should_trigger": true
+  },
+  {
+    "query": "set up something where I can click on parts of the site and leave comments that come back to you for fixing",
+    "should_trigger": true
+  },
+  {
+    "query": "what did i flag on the billing screens last week that still isn't done?",
+    "should_trigger": true
+  },
+  {
+    "query": "can we do the thing where I draw a box over an area of the page and write what's wrong with it, rather than me trying to describe which bit of whitespace I mean",
+    "should_trigger": true
+  },
+  {
+    "query": "im demoing the customer portal to a client at 3pm today. i want to capture their comments on each screen as we walk through it so nothing gets lost, then work through them after they leave",
+    "should_trigger": true
+  },
+  {
+    "query": "the settings page is finally rendering at :3000. put it in front of me so I can react to it properly instead of guessing from your description of what you built",
+    "should_trigger": true
+  },
+  {
+    "query": "i need a review tool for the running app - not a mockup or a plan, the actual thing with my real data in it, where my notes end up somewhere you can act on",
+    "should_trigger": true
+  },
+  {
+    "query": "collect my notes on the design of /dashboard and /devices. I'll go through them both now and you can implement afterwards, I don't want to be interrupted every two minutes",
+    "should_trigger": true
+  },
+  {
+    "query": "annotate mode please - I'll mark up the checkout flow and send them over in one batch when I'm done",
+    "should_trigger": true
+  },
+  {
+    "query": "there were like 4 things i pointed out about the meter grid yesterday. did you get through all of them or is something still open",
+    "should_trigger": true
+  },
+
+  {
+    "query": "turn the v2 migration plan into an interactive html page I can annotate and send comments back on - the phases, what breaks, the rollback story",
+    "should_trigger": false
+  },
+  {
+    "query": "go through the repo and write me an architecture doc in docs/ - how the four daemons talk to each other, the DB ownership rules, what's implemented vs still todo",
+    "should_trigger": false
+  },
+  {
+    "query": "the header padding in frontend/src/views/DashboardView.vue is 12px, bump it to 16 and make sure the 390px breakpoint still doesn't clip the balance chip",
+    "should_trigger": false
+  },
+  {
+    "query": "the dashboard takes about 4s to first paint on the pi. profile it and tell me what's render-blocking, i suspect the echarts bundle",
+    "should_trigger": false
+  },
+  {
+    "query": "add a feedback form to the contact page so customers can send us bug reports. it should write into the notifications table and email whoever is on the support rule",
+    "should_trigger": false
+  },
+  {
+    "query": "review the diff on this branch before i merge it, mainly worried about the rounding in the billing line items",
+    "should_trigger": false
+  },
+  {
+    "query": "write a playwright test that walks the checkout flow end to end and asserts the total matches the tariff calculation",
+    "should_trigger": false
+  },
+  {
+    "query": "grab a screenshot of the login page at 390px wide and drop it into the PR description",
+    "should_trigger": false
+  },
+  {
+    "query": "run an accessibility pass over the signup flow - we need contrast ratios and keyboard nav checked before the audit next month",
+    "should_trigger": false
+  },
+  {
+    "query": "the app looks like an untouched bootstrap template. give me a proper visual direction for it - type scale, palette, spacing rhythm, the works",
+    "should_trigger": false
+  }
+]
