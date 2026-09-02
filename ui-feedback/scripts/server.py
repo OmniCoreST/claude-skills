@@ -25,6 +25,7 @@ import mimetypes
 import queue
 import re
 import socket
+import sys
 import threading
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -94,6 +95,24 @@ class ReviewServer(ThreadingHTTPServer):
         self.target_netloc = parsed.netloc
         self.store = store
         self.verbose = verbose
+
+    def handle_error(self, request, client_address):
+        """Swallow the disconnects a browser makes on purpose.
+
+        A reload, a navigation away, or a dropped `/api/events` stream resets
+        the connection while `http.server` is still reading the request line -
+        before any handler method runs, so the `ConnectionResetError` guards
+        inside the handlers never get the chance to catch it. It surfaces here
+        instead, and the stdlib's default is to print a full traceback, which
+        makes routine browser behaviour look like the server crashing and
+        buries the failures that are worth reading. Anything unexpected is
+        still reported in full.
+        """
+        exc = sys.exc_info()[1]
+        if isinstance(exc, (BrokenPipeError, ConnectionResetError,
+                            ConnectionAbortedError, TimeoutError)):
+            return
+        super().handle_error(request, client_address)
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -564,12 +583,37 @@ def _inject(raw: bytes, fetch_dest: str = "") -> bytes:
     return raw + INJECT_TAG
 
 
+def hook_scopes(project_root: Path) -> list[tuple[str, Path]]:
+    """Every settings file that wires the delivery hook, as (scope, path).
+
+    Looking only at the project's own settings was a false negative for the
+    perfectly ordinary setup of wiring the hook once in `~/.claude/settings.json`
+    to cover every project: the hook fired correctly while `doctor`, the startup
+    banner and the rail all reported it missing. People then rewired something
+    that already worked, or wrote it off as broken - one session recorded
+    "hooks are NOT installed here" as a project fact and told every later
+    session to collect feedback by hand.
+    """
+    found: list[tuple[str, Path]] = []
+    seen: set[Path] = set()
+    for base, scope in ((project_root, "project"), (Path.home(), "user")):
+        for name in ("settings.json", "settings.local.json"):
+            path = base / ".claude" / name
+            try:
+                resolved = path.resolve()
+            except OSError:
+                continue
+            if resolved in seen or not path.exists():
+                continue
+            seen.add(resolved)
+            suffix = " (local)" if name.endswith(".local.json") else ""
+            if "hook_uifb" in path.read_text(encoding="utf-8", errors="ignore"):
+                found.append((scope + suffix, path))
+    return found
+
+
 def _hooks_installed(project_root: Path) -> bool:
-    for name in ("settings.json", "settings.local.json"):
-        path = project_root / ".claude" / name
-        if path.exists() and "hook_uifb" in path.read_text(encoding="utf-8", errors="ignore"):
-            return True
-    return False
+    return bool(hook_scopes(project_root))
 
 
 def _escape(text: str) -> str:

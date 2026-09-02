@@ -287,3 +287,101 @@ def find_project_root(start: str | os.PathLike | None = None) -> Path:
         if (candidate / DIR_NAME).is_dir() or (candidate / ".git").exists():
             return candidate
     return here
+
+
+# --------------------------------------------------------------- live servers
+#
+# The hook resolves a ledger by walking up from the session's cwd, which only
+# finds it when the session happens to run inside the reviewed project. A
+# session started anywhere else - a home directory, a sibling checkout, a tool
+# repo the reviewer keeps open - walks up, finds no ledger, and exits silently
+# while the reviewer watches their sent item sit there. That silence is the
+# whole "hooks don't work" symptom, and hand-pinning the path in a wrapper
+# script is how people have been working around it.
+#
+# So a serving process records itself here, and the hook can ask "what is
+# actually being reviewed right now?" instead of only "what is under my cwd?".
+# The registry is a cache of live processes, never a source of truth about
+# feedback: every entry is re-verified (pid alive, port listening, ledger still
+# on disk) before it is trusted, and pruned when it is not.
+
+STATE_DIR = Path(
+    os.environ.get("XDG_STATE_HOME") or (Path.home() / ".local" / "state")
+) / "uifb"
+REGISTRY = STATE_DIR / "servers.json"
+
+
+def _registry_read() -> dict:
+    try:
+        with open(REGISTRY, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+        return data if isinstance(data, dict) else {}
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
+def _registry_write(data: dict) -> None:
+    STATE_DIR.mkdir(parents=True, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=str(STATE_DIR), prefix=".servers-", suffix=".json")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            json.dump(data, fh, indent=2)
+            fh.write("\n")
+        os.replace(tmp, REGISTRY)
+    except BaseException:
+        if os.path.exists(tmp):
+            os.unlink(tmp)
+        raise
+
+
+def _port_listening(port: int) -> bool:
+    import socket
+
+    with socket.socket() as s:
+        s.settimeout(0.4)
+        return s.connect_ex(("127.0.0.1", int(port))) == 0
+
+
+def _alive(entry: dict) -> bool:
+    """A registry entry is only worth trusting if the process is still there,
+    the port still answers, and the ledger it named still exists."""
+    pid = entry.get("pid")
+    try:
+        os.kill(int(pid), 0)
+    except (OSError, TypeError, ValueError):
+        return False
+    if not _port_listening(entry.get("port") or 0):
+        return False
+    return (Path(entry.get("root", "")) / DIR_NAME / FILE_NAME).exists()
+
+
+def register_server(root: str | os.PathLike, port: int, target: str) -> None:
+    key = str(Path(root).resolve())
+    data = {k: v for k, v in _registry_read().items() if _alive(v)}
+    data[key] = {
+        "root": key,
+        "port": int(port),
+        "target": target,
+        "pid": os.getpid(),
+        "started_at": now_iso(),
+    }
+    _registry_write(data)
+
+
+def unregister_server(root: str | os.PathLike) -> None:
+    key = str(Path(root).resolve())
+    data = _registry_read()
+    if data.pop(key, None) is not None:
+        _registry_write(data)
+
+
+def live_servers() -> list[dict]:
+    """Every review server currently serving, stale entries pruned away."""
+    data = _registry_read()
+    live = {k: v for k, v in data.items() if _alive(v)}
+    if len(live) != len(data):
+        try:
+            _registry_write(live)
+        except OSError:
+            pass  # a read-only state dir must never break delivery
+    return list(live.values())

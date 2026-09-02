@@ -171,12 +171,57 @@ remain implementable - a missing picture is a downgrade, not a blocker.
 
 ## Feedback never reaches Claude
 
-1. `uifb.py doctor` - is `hooks installed` ok?
+1. `uifb.py doctor` - is `hooks installed` ok? It now names the settings file,
+   so a `--user` install shows up as `user: ~/.claude/settings.json` instead of
+   reading as missing.
 2. Was Claude Code restarted after `install-hooks`? Settings are read at start.
 3. `uifb.py list --status sent` - is anything actually sent? Items sitting at
    `open` are still drafts; the reviewer has not pressed Send.
-4. Fire the hook by hand (see `hooks.md`). `exit=2` with text means the store
+4. **Where is the session running?** This is the one that looks like a broken
+   hook and is not. The hook resolves the ledger from the session's `cwd`, so a
+   session working outside the reviewed checkout used to find nothing and exit
+   silently. It now also delivers from any review server that is live, but only
+   while that server is actually running. If the reviewer sent items with no
+   server up *and* the session is not inside the project, nothing arrives - run
+   `uifb.py pending` from the project, or pin the session with
+   `UIFB_ROOT=/path/to/project`.
+5. Fire the hook by hand (see `hooks.md`). `exit=2` with text means the store
    and hook are fine and the problem is in the settings wiring.
+
+A silent hook is indistinguishable from an unwired one from the outside, which
+is how a project ends up with a note saying hooks do not work here while they
+work fine. Check 1 and 4 before believing that note.
+
+## The serve log shows a traceback
+
+`ConnectionResetError: [Errno 104] Connection reset by peer` ending in
+`rfile.readline` is a browser closing a connection - a reload, a navigation, a
+dropped `/api/events` stream. It is routine, it does not stop the server, and
+it is now swallowed rather than printed. If tracebacks reappear in the log,
+they are real: read them.
+
+## macOS
+
+Everything here is POSIX and runs the same on macOS and Linux - `fcntl.flock`,
+`os.kill(pid, 0)` and the loopback socket checks all behave identically, and
+nothing shells out to a Linux-only tool. Two environment differences are worth
+knowing:
+
+- **`python3` must exist on `PATH`.** The hooks are wired as `python3 "<path>"`,
+  and a clean macOS has no `python3` until the Xcode command line tools
+  (`xcode-select --install`) or Homebrew provide one. Without it every hook
+  exits silently and feedback never arrives - `uifb.py doctor` is the quickest
+  way to tell.
+- **Screenshots need Screen Recording permission.** `getDisplayMedia` prompts
+  the browser, but macOS also gates it at the system level: System Settings →
+  Privacy & Security → Screen Recording, for the browser. Until that is granted
+  the capture returns nothing and items are stored without a picture, which is
+  a downgrade rather than a blocker.
+
+The live-server registry lives at `${XDG_STATE_HOME:-~/.local/state}/uifb/`.
+macOS does not set `XDG_STATE_HOME`, so it lands in `~/.local/state/uifb/` -
+deliberately the same path as on Linux, so a synced home directory behaves the
+same on both.
 
 ## Framework notes
 
