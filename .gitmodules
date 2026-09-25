@@ -1,0 +1,3 @@
+[submodule "ui-feedback"]
+	path = ui-feedback
+	url = https://github.com/OmniCoreST/ui-feedback.git
